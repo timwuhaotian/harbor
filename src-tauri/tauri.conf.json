@@ -1,0 +1,38 @@
+{
+  "$schema": "./gen/schemas/desktop-schema.json",
+  "productName": "Harbor",
+  "version": "../package.json",
+  "identifier": "com.harbor.exitnode",
+  "build": {
+    "beforeDevCommand": "npm run dev:frontend",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Harbor",
+        "width": 1040,
+        "height": 760,
+        "minWidth": 920,
+        "minHeight": 680
+      }
+    ],
+    "security": {
+      "capabilities": ["default"],
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": "../build/entitlements.mac.plist",
+      "signingIdentity": null
+    },
+    "resources": ["resources/harbor-defaults.bundle.json"]
+  }
+}

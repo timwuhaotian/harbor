@@ -1,0 +1,27 @@
+{
+  "name": "harbor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run tauri -- dev",
+    "dev:frontend": "node scripts/prepare-bundled-defaults.mjs && vite",
+    "build": "node scripts/prepare-bundled-defaults.mjs && tsc && vite build",
+    "test": "vitest run",
+    "tauri": "tauri",
+    "build:mac": "npm run tauri -- build",
+    "build:mac:signed": "node scripts/build-signed-mac.mjs",
+    "verify:mac-signature": "node scripts/verify-mac-signature.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/qrcode": "^1.5.5",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.15"
+  }
+}

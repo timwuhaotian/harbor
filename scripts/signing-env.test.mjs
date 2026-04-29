@@ -35,6 +35,18 @@ describe('mapSigningEnv', () => {
 
     expect(result.APPLE_SIGNING_IDENTITY).toBe('Developer ID Application: HAOTIAN WU (43VLF3KTFZ)')
   })
+
+  test('maps macOS release secret identity to Tauri signing identity', () => {
+    const result = mapSigningEnv(
+      {
+        MACOS_SIGNING_IDENTITY: 'Developer ID Application: HAOTIAN WU (43VLF3KTFZ)',
+      },
+      'Developer ID Application: OTHER (TEAMID)',
+    )
+
+    expect(result.APPLE_SIGNING_IDENTITY).toBe('Developer ID Application: HAOTIAN WU (43VLF3KTFZ)')
+    expect(result.CSC_NAME).toBe('Developer ID Application: HAOTIAN WU (43VLF3KTFZ)')
+  })
 })
 
 describe('parseDotEnv', () => {

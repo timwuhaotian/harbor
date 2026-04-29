@@ -38,11 +38,13 @@ export function parseDotEnv(content) {
 export function mapSigningEnv(env, detectedIdentity) {
   const applePassword = env.APPLE_PASSWORD || env.APPLE_APP_SPECIFIC_PASSWORD || ''
   const appleTeamId = env.APPLE_TEAM_ID || env.TEAM_ID || ''
-  const appleSigningIdentity = env.APPLE_SIGNING_IDENTITY || env.CSC_NAME || detectedIdentity || ''
+  const appleSigningIdentity =
+    env.APPLE_SIGNING_IDENTITY || env.MACOS_SIGNING_IDENTITY || env.CSC_NAME || detectedIdentity || ''
 
   return {
     ...env,
     APPLE_SIGNING_IDENTITY: appleSigningIdentity,
+    CSC_NAME: env.CSC_NAME || appleSigningIdentity,
     APPLE_TEAM_ID: appleTeamId,
     APPLE_PASSWORD: applePassword,
   }

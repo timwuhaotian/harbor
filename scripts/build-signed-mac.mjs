@@ -33,8 +33,6 @@ function main() {
     throw new Error('No Developer ID Application identity found. Install the certificate or set CSC_NAME.')
   }
 
-  console.log(`Using signing identity: ${env.APPLE_SIGNING_IDENTITY}`)
-
   const args = ['run', 'tauri', '--', 'build', ...process.argv.slice(2)]
   const result = spawnSync('npm', args, {
     env,

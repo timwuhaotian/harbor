@@ -1,7 +1,7 @@
 {
   "$schema": "./gen/schemas/desktop-schema.json",
   "productName": "Harbor",
-  "version": "0.1.0",
+  "version": "../package.json",
   "identifier": "com.harbor.exitnode",
   "build": {
     "beforeDevCommand": "npm run dev:frontend",

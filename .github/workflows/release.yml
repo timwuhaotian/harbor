@@ -84,6 +84,9 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Prepare bundled defaults for Rust tests
+        run: node scripts/prepare-bundled-defaults.mjs
+
       - name: Run Rust tests
         run: cargo test --lib
         working-directory: src-tauri

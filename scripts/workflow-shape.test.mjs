@@ -31,4 +31,12 @@ describe('release workflow', () => {
     expect(workflow).toContain('DETECTED_CERT_ID=')
     expect(workflow).toContain('CERT_ID="${MACOS_SIGNING_IDENTITY:-$DETECTED_CERT_ID}"')
   })
+
+  test('generates bundled defaults before Rust tests on fresh CI checkouts', () => {
+    const prepareIndex = workflow.indexOf('node scripts/prepare-bundled-defaults.mjs')
+    const rustTestIndex = workflow.indexOf('cargo test --lib')
+
+    expect(prepareIndex).toBeGreaterThan(-1)
+    expect(prepareIndex).toBeLessThan(rustTestIndex)
+  })
 })

@@ -39,4 +39,12 @@ describe('release workflow', () => {
     expect(prepareIndex).toBeGreaterThan(-1)
     expect(prepareIndex).toBeLessThan(rustTestIndex)
   })
+
+  test('keeps release artifacts separate from the frontend dist directory', () => {
+    expect(workflow).toContain('--out-dir release-dist')
+    expect(workflow).toContain('path: release-dist/')
+    expect(workflow).toContain('path: release-dist')
+    expect(workflow).toContain('gh release create "$TAG" release-dist/*')
+    expect(workflow).not.toContain('gh release create "$TAG" dist/*')
+  })
 })

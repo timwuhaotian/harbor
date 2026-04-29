@@ -159,13 +159,13 @@ jobs:
         run: npm run verify:mac-signature
 
       - name: Collect macOS release assets
-        run: node scripts/release-assets.mjs --platform macos --bundle-root src-tauri/target/release/bundle --out-dir dist --version "$VERSION"
+        run: node scripts/release-assets.mjs --platform macos --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "$VERSION"
 
       - name: Upload macOS release assets
         uses: actions/upload-artifact@v4
         with:
           name: release-assets-macos
-          path: dist/
+          path: release-dist/
           retention-days: 7
 
   windows-placeholder:
@@ -199,7 +199,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: release-assets-*
-          path: dist
+          path: release-dist
           merge-multiple: true
 
       - name: Prepare release notes
@@ -232,7 +232,7 @@ jobs:
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --notes-file release-notes.md
-            gh release upload "$TAG" dist/* --clobber
+            gh release upload "$TAG" release-dist/* --clobber
           else
-            gh release create "$TAG" dist/* --title "$TAG" --notes-file release-notes.md
+            gh release create "$TAG" release-dist/* --title "$TAG" --notes-file release-notes.md
           fi

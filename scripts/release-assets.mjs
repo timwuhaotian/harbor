@@ -85,7 +85,7 @@ export function collectMacReleaseAssets({ bundleRoot, outDir, version }) {
     throw new Error(`Expected app bundle at ${appSource}`)
   }
 
-  const dmgDestination = join(resolvedOutDir, `harbor-${version}.dmg`)
+  const dmgDestination = join(resolvedOutDir, `harbor.dmg`)
   const zipDestination = join(resolvedOutDir, `harbor-${version}-macos.zip`)
 
   copyFileSync(dmgSource, dmgDestination)

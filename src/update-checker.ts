@@ -59,7 +59,8 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
       changelog: data.changelog,
       releasedAt: data.releasedAt,
     };
-  } catch {
+  } catch (error) {
+    console.warn('[Harbor] Update check failed:', error);
     return { hasUpdate: false };
   }
 }

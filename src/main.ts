@@ -169,11 +169,11 @@ function render(): void {
         <div class="sidebar-header">
           <div class="brand">
             <div class="brand-icon">H</div>
-            <h1>Harbor</h1>
+            <h1>Harbor <span class="app-version">v${__APP_VERSION__}</span></h1>
           </div>
           <p class="eyebrow">个人出口节点</p>
           <p class="lede">通过 Cloudflare Tunnel 将 Mac 变为私有的 VLESS WebSocket 出口节点。</p>
-          <button id="check-update-button" class="ghost version-check" ${checkingUpdate ? 'disabled' : ''}>${checkingUpdate ? '检查中...' : 'v' + __APP_VERSION__ + ' · 检查更新'}</button>
+          <button id="check-update-button" class="ghost version-check" ${checkingUpdate ? 'disabled' : ''}>${checkingUpdate ? '检查中...' : '检查更新'}</button>
         </div>
 
         ${updateInfo?.hasUpdate ? `

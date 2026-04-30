@@ -672,3 +672,11 @@ textarea {
 .update-actions button {
   flex: 1;
 }
+
+.app-version {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 4px;
+}

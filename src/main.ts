@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 
 import './styles.css';
 import { restoreSettingsFromSaved, statusLabel, type HarborSettings, type HarborStatus } from './ui';
+import { checkForUpdate, downloadUpdate, skipVersion, getStoredDownloadToken, storeDownloadToken, type UpdateCheckResult } from './update-checker';
 
 type Preview = {
   vlessLink: string;
@@ -35,6 +36,10 @@ let status: HarborStatus = {
 let preview: Preview | null = null;
 let errorMessage = '';
 let busy = false;
+let updateInfo: UpdateCheckResult | null = null;
+let updateError = '';
+let checkingUpdate = false;
+let downloadToken = getStoredDownloadToken();
 const logs: HarborLogEvent[] = [];
 
 function persistSettings(nextSettings: HarborSettings): void {
@@ -168,7 +173,23 @@ function render(): void {
           </div>
           <p class="eyebrow">个人出口节点</p>
           <p class="lede">通过 Cloudflare Tunnel 将 Mac 变为私有的 VLESS WebSocket 出口节点。</p>
+          <button id="check-update-button" class="ghost version-check" ${checkingUpdate ? 'disabled' : ''}>${checkingUpdate ? '检查中...' : 'v' + __APP_VERSION__ + ' · 检查更新'}</button>
         </div>
+
+        ${updateInfo?.hasUpdate ? `
+        <div class="update-card">
+          <div class="update-card-header">
+            <span class="update-badge">新版本</span>
+            <span class="update-version">v${escapeHtml(updateInfo.version ?? '')}</span>
+          </div>
+          ${updateInfo.changelog ? `<div class="update-changelog">${formatChangelog(escapeHtml(updateInfo.changelog))}</div>` : ''}
+          ${updateError ? `<div class="update-error">${escapeHtml(updateError)}</div>` : ''}
+          <div class="update-actions">
+            <button id="download-update-button" class="primary">${downloadToken ? '下载更新' : '请先输入注册令牌'}</button>
+            <button id="skip-update-button" class="ghost">跳过此版本</button>
+          </div>
+        </div>
+        ` : ''}
 
         <div class="status-panel">
           <div class="status-header">
@@ -227,6 +248,10 @@ function render(): void {
             <label>
               <span>cloudflared 路径</span>
               <input name="cloudflaredPath" value="${escapeAttribute(settings.cloudflaredPath)}" placeholder="cloudflared" />
+            </label>
+            <label>
+              <span>注册令牌</span>
+              <input name="downloadToken" type="password" value="${escapeAttribute(downloadToken)}" placeholder="粘贴购买后获取的下载令牌" />
             </label>
           </form>
 
@@ -292,6 +317,24 @@ function bindEvents(): void {
     logs.length = 0;
     render();
   });
+
+  app.querySelector('#check-update-button')?.addEventListener('click', () => void manualCheckUpdate());
+
+  app.querySelector('#download-update-button')?.addEventListener('click', () => void handleDownloadUpdate());
+  app.querySelector('#skip-update-button')?.addEventListener('click', () => {
+    if (updateInfo?.version) {
+      skipVersion(updateInfo.version);
+      updateInfo = null;
+      render();
+    }
+  });
+
+  const tokenInput = app.querySelector<HTMLInputElement>('input[name="downloadToken"]');
+  tokenInput?.addEventListener('change', () => {
+    downloadToken = tokenInput.value;
+    storeDownloadToken(downloadToken);
+    render();
+  });
 }
 
 function renderQrCode(link: string): void {
@@ -331,6 +374,40 @@ function escapeAttribute(value: string): string {
   return escapeHtml(value);
 }
 
+function formatChangelog(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('##')) return `<strong>${escapeHtml(trimmed.replace(/^#+\s*/, ''))}</strong>`;
+      if (trimmed.startsWith('-')) return `<span>${escapeHtml(trimmed)}</span>`;
+      return `<span>${escapeHtml(trimmed)}</span>`;
+    })
+    .filter(Boolean)
+    .join('');
+}
+
+async function manualCheckUpdate(): Promise<void> {
+  checkingUpdate = true;
+  updateError = '';
+  render();
+
+  updateInfo = await checkForUpdate(__APP_VERSION__);
+
+  checkingUpdate = false;
+  render();
+}
+
+async function handleDownloadUpdate(): Promise<void> {
+  const result = await downloadUpdate(downloadToken);
+
+  if (!result.ok) {
+    updateError = result.error ?? '下载失败';
+    render();
+  }
+}
+
 async function bootstrap(): Promise<void> {
   const defaults = await invoke<HarborSettings>('get_default_settings');
   settings = restoreSettings(defaults);
@@ -341,6 +418,11 @@ async function bootstrap(): Promise<void> {
   await refreshStatus();
   scheduleStatusPolling();
   render();
+
+  checkForUpdate(__APP_VERSION__).then((result) => {
+    updateInfo = result;
+    render();
+  });
 }
 
 void bootstrap();

@@ -23,10 +23,10 @@ describe('collectMacReleaseAssets', () => {
     const assets = collectMacReleaseAssets({ bundleRoot, outDir, version: '0.1.0' })
 
     expect(assets.map((asset) => asset.destination.split('/').at(-1))).toEqual([
-      'harbor-0.1.0.dmg',
+      'harbor.dmg',
       'harbor-0.1.0-macos.zip',
     ])
-    expect(readFileSync(join(outDir, 'harbor-0.1.0.dmg'), 'utf8')).toBe('dmg')
+    expect(readFileSync(join(outDir, 'harbor.dmg'), 'utf8')).toBe('dmg')
 
     rmSync(root, { recursive: true, force: true })
   })

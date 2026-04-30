@@ -5,6 +5,14 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-05-01
+
+### Added
+- Automatic update check on startup with in-app notification card showing changelog.
+- Manual "Check for Updates" button in sidebar.
+- Registration token input field for paid download authentication.
+- Skip version option to dismiss update notifications per version.
+
 ## [0.1.3] - 2026-05-01
 
 ### Fixed
@@ -29,6 +37,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Developer ID signing flow for private macOS distribution.
 - Cloudflare setup and code-signing documentation.
 
+[0.1.4]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.4
 [0.1.3]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.3
 [0.1.2]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.2
 [0.1.1]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.1

@@ -141,11 +141,13 @@ async function fetchRuntimes(platform) {
   console.log(`✅ ${platforms.join(' + ')} runtimes downloaded successfully`)
 
   // Create empty placeholders for any missing binaries so Tauri config validation passes
-  for (const [, config] of Object.entries(downloads)) {
-    const destPath = join(resourcesDir, config.dest)
-    if (!existsSync(destPath)) {
-      writeFileSync(destPath, '')
-      console.log(`Created placeholder: ${destPath}`)
+  for (const [, platformDownloads] of Object.entries(downloads)) {
+    for (const [, config] of Object.entries(platformDownloads)) {
+      const destPath = join(resourcesDir, config.dest)
+      if (!existsSync(destPath)) {
+        writeFileSync(destPath, '')
+        console.log(`Created placeholder: ${destPath}`)
+      }
     }
   }
 }

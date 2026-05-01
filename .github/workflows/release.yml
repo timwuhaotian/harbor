@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -31,23 +33,36 @@ jobs:
 
           const currentVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
           const tag = `v${currentVersion}`
+          const refName = process.env.GITHUB_REF_NAME || ''
+          const refType = process.env.GITHUB_REF_TYPE || ''
 
-          let tagExists = false
-          try {
-            execSync(`git rev-parse ${tag}`, { encoding: 'utf8', stdio: 'pipe' })
-            tagExists = true
-          } catch {
-            tagExists = false
+          let shouldPublish = false
+
+          // If triggered by a tag push (v*), always publish
+          if (refType === 'tag' && refName === tag) {
+            shouldPublish = true
+          } else {
+            // For branch pushes: check if tag already points to HEAD
+            try {
+              const headSha = execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: 'pipe' }).trim()
+              const tagSha = execSync(`git rev-parse ${tag}^{commit}`, { encoding: 'utf8', stdio: 'pipe' }).trim()
+              if (headSha !== tagSha) {
+                shouldPublish = true
+              }
+            } catch {
+              // Tag doesn't exist at all — safe to publish
+              shouldPublish = true
+            }
           }
 
-          const shouldPublish = String(!tagExists)
-          if (shouldPublish === 'true') {
+          if (shouldPublish === true) {
             const changelog = fs.readFileSync('CHANGELOG.md', 'utf8')
             if (!changelog.includes(`## [${currentVersion}]`)) {
               throw new Error(`Missing changelog entry for ${currentVersion}. Add it before releasing.`)
             }
           }
 
+          console.log(`refType=${refType}, refName=${refName}, version=${currentVersion}, tag=${tag}, should_publish=${shouldPublish}`)
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${currentVersion}\n`)
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_publish=${shouldPublish}\n`)

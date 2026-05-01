@@ -84,8 +84,10 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
-      - name: Prepare bundled defaults for Rust tests
-        run: node scripts/prepare-bundled-defaults.mjs
+      - name: Prepare bundled defaults and runtimes for Rust tests
+        run: |
+          node scripts/prepare-bundled-defaults.mjs
+          node scripts/fetch-runtimes.mjs macos
 
       - name: Run Rust tests
         run: cargo test --lib

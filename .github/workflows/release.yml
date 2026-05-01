@@ -151,6 +151,15 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
           echo "CSC_NAME=$CERT_ID" >> "$GITHUB_ENV"
 
+      - name: Codesign bundled runtime binaries
+        run: |
+          for bin in src-tauri/resources/cloudflared src-tauri/resources/sing-box; do
+            if [ -f "$bin" ]; then
+              codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$bin"
+              echo "Signed $bin"
+            fi
+          done
+
       - name: Build signed macOS app
         env:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}

@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -120,10 +120,10 @@ async function fetchRuntimes(platform) {
             throw new Error(`Extracted file not found: ${extractedFile}`)
           }
 
-          renameSync(extractedFile, destPath)
+          copyFileSync(extractedFile, destPath)
           console.log(`Extracted ${name} (${p}) to ${destPath}`)
         } else {
-          renameSync(tempFile, destPath)
+          copyFileSync(tempFile, destPath)
           console.log(`Downloaded ${name} (${p}) to ${destPath}`)
         }
 

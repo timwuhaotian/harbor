@@ -46,8 +46,8 @@
     },
     "resources": [
       "resources/harbor-defaults.bundle.json",
-      "resources/cloudflared",
-      "resources/sing-box"
+      "resources/cloudflared*",
+      "resources/sing-box*"
     ]
   }
 }

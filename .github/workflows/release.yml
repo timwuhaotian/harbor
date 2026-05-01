@@ -120,8 +120,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download macOS runtimes
-        run: node scripts/fetch-runtimes.mjs macos
+      - name: Download runtimes
+        run: node scripts/fetch-runtimes.mjs all
 
       - name: Import signing certificate
         env:

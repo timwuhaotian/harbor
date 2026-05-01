@@ -86,10 +86,7 @@ function extractTar(tarPath, extractPath) {
 }
 
 async function fetchRuntimes(platform) {
-  const platformDownloads = downloads[platform]
-  if (!platformDownloads) {
-    throw new Error(`Unsupported platform: ${platform}`)
-  }
+  const platforms = platform === 'all' ? ['macos', 'windows'] : [platform]
 
   mkdirSync(resourcesDir, { recursive: true })
 
@@ -97,50 +94,56 @@ async function fetchRuntimes(platform) {
   mkdirSync(tempDir, { recursive: true })
 
   try {
-    for (const [name, config] of Object.entries(platformDownloads)) {
-      const tempFile = join(tempDir, name)
-      downloadFile(config.url, tempFile)
+    for (const p of platforms) {
+      for (const [name, config] of Object.entries(downloads[p])) {
+        const destPath = join(resourcesDir, config.dest)
+        if (existsSync(destPath)) {
+          console.log(`Skipping ${name} (${p}) (already exists at ${destPath})`)
+          continue
+        }
 
-      if (config.extract) {
-        const extractDir = join(tempDir, `${name}-extracted`)
-        mkdirSync(extractDir, { recursive: true })
-        
-        if (config.url.endsWith('.tgz') || config.url.endsWith('.tar.gz')) {
-          extractTar(tempFile, extractDir)
+        const tempFile = join(tempDir, `${p}-${name}`)
+        downloadFile(config.url, tempFile)
+
+        if (config.extract) {
+          const extractDir = join(tempDir, `${name}-extracted`)
+          mkdirSync(extractDir, { recursive: true })
+          
+          if (config.url.endsWith('.tgz') || config.url.endsWith('.tar.gz')) {
+            extractTar(tempFile, extractDir)
+          } else {
+            extractZip(tempFile, extractDir)
+          }
+
+          const extractedFile = join(extractDir, config.extractFrom)
+          if (!existsSync(extractedFile)) {
+            throw new Error(`Extracted file not found: ${extractedFile}`)
+          }
+
+          renameSync(extractedFile, destPath)
+          console.log(`Extracted ${name} (${p}) to ${destPath}`)
         } else {
-          extractZip(tempFile, extractDir)
+          renameSync(tempFile, destPath)
+          console.log(`Downloaded ${name} (${p}) to ${destPath}`)
         }
 
-        const extractedFile = join(extractDir, config.extractFrom)
-        if (!existsSync(extractedFile)) {
-          throw new Error(`Extracted file not found: ${extractedFile}`)
+        if (name === 'cloudflared' && !config.extract) {
+          spawnSync('chmod', ['+x', destPath], {
+            stdio: 'inherit',
+          })
         }
-
-        const destPath = join(resourcesDir, config.dest)
-        renameSync(extractedFile, destPath)
-        console.log(`Extracted ${name} to ${destPath}`)
-      } else {
-        const destPath = join(resourcesDir, config.dest)
-        renameSync(tempFile, destPath)
-        console.log(`Downloaded ${name} to ${destPath}`)
-      }
-
-      if (platform === 'macos' && !config.extract) {
-        spawnSync('chmod', ['+x', join(resourcesDir, config.dest)], {
-          stdio: 'inherit',
-        })
       }
     }
   } finally {
     spawnSync('rm', ['-rf', tempDir], { stdio: 'inherit' })
   }
 
-  console.log(`✅ ${platform} runtimes downloaded successfully`)
+  console.log(`✅ ${platforms.join(' + ')} runtimes downloaded successfully`)
 }
 
 const platform = process.argv[2]
-if (!platform || !['macos', 'windows'].includes(platform)) {
-  console.error('Usage: node scripts/fetch-runtimes.mjs <macos|windows>')
+if (!platform || !['macos', 'windows', 'all'].includes(platform)) {
+  console.error('Usage: node scripts/fetch-runtimes.mjs <macos|windows|all>')
   process.exit(1)
 }
 

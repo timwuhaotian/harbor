@@ -88,8 +88,11 @@ async function updatePreview(): Promise<void> {
 }
 
 async function refreshStatus(): Promise<void> {
+  const prev = status;
   status = await invoke<HarborStatus>('get_status');
-  render();
+  if (JSON.stringify(status) !== JSON.stringify(prev)) {
+    render();
+  }
 }
 
 function scheduleStatusPolling(): void {
@@ -294,6 +297,33 @@ function render(): void {
   renderQrCode(link);
 }
 
+function appendLog(log: HarborLogEvent): void {
+  const container = app.querySelector<HTMLDivElement>('.logs');
+  if (!container) {
+    render();
+    return;
+  }
+
+  while (container.children.length > 119) {
+    container.removeChild(container.firstChild!);
+  }
+
+  const empty = container.querySelector('.empty');
+  if (empty) {
+    empty.remove();
+  }
+
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span>${escapeHtml(log.source)}</span><span>${escapeHtml(log.stream)}</span><p>${escapeHtml(log.line)}</p>`;
+  container.appendChild(div);
+
+  const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
+  if (isNearBottom) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
 function bindEvents(): void {
   const form = app.querySelector<HTMLFormElement>('#settings-form');
   form?.addEventListener('input', () => {
@@ -413,7 +443,7 @@ async function bootstrap(): Promise<void> {
   settings = restoreSettings(defaults);
   await listen<HarborLogEvent>('harbor-log', (event) => {
     logs.push(event.payload);
-    render();
+    appendLog(event.payload);
   });
   await refreshStatus();
   scheduleStatusPolling();

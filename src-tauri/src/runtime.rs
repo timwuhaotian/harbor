@@ -258,7 +258,7 @@ impl HarborRuntime {
         refresh_child(&mut self.cloudflared);
     }
 
-    fn stop(&mut self) {
+    pub fn stop(&mut self) {
         stop_child(&mut self.cloudflared);
         stop_child(&mut self.sing_box);
     }
@@ -289,8 +289,21 @@ fn spawn_logged_process(
     let mut command = Command::new(&resolved_program);
     command
         .args(args)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt as _;
+        command.process_group(0);
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt as _;
+        command.creation_flags(0x00000010);
+    }
 
     if let Some((key, value)) = env {
         command.env(key, value);
@@ -351,7 +364,20 @@ fn stop_child(child: &mut Option<Child>) {
         return;
     };
 
-    let _ = process.kill();
+    let pid = process.id();
+
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::killpg(pid as i32, libc::SIGTERM);
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = process.kill();
+    }
+
     let _ = process.wait();
 }
 

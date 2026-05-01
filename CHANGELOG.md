@@ -5,6 +5,13 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.14] - 2026-05-01
+
+### Fixed
+- Kill child process groups on stop/quit to prevent stale sing-box and cloudflared processes.
+- Stop services when closing the app window.
+- Fix log panel auto-scrolling back to top; logs now append incrementally and only auto-follow when near the bottom.
+
 ## [0.1.13] - 2026-05-01
 
 ### Fixed

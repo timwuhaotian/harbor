@@ -10,6 +10,9 @@ use runtime::{
 };
 
 #[cfg(not(test))]
+use tauri::Manager;
+
+#[cfg(not(test))]
 pub fn run() {
     tauri::Builder::default()
         .manage(Mutex::new(HarborRuntime::default()))
@@ -20,6 +23,14 @@ pub fn run() {
             stop_harbor,
             get_status
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let state = window.state::<Mutex<HarborRuntime>>();
+                if let Ok(mut runtime) = state.lock() {
+                    runtime.stop();
+                };
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running Harbor");
 }

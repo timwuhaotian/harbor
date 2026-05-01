@@ -225,7 +225,7 @@ jobs:
         run: npm run tauri -- build
 
       - name: Collect Windows release assets
-        run: node scripts/release-assets.mjs --platform windows --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "$VERSION"
+        run: node scripts/release-assets.mjs --platform windows --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "${Env:VERSION}"
 
       - name: Upload Windows release assets
         uses: actions/upload-artifact@v4

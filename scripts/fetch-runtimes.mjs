@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -139,6 +139,15 @@ async function fetchRuntimes(platform) {
   }
 
   console.log(`✅ ${platforms.join(' + ')} runtimes downloaded successfully`)
+
+  // Create empty placeholders for any missing binaries so Tauri config validation passes
+  for (const [, config] of Object.entries(downloads)) {
+    const destPath = join(resourcesDir, config.dest)
+    if (!existsSync(destPath)) {
+      writeFileSync(destPath, '')
+      console.log(`Created placeholder: ${destPath}`)
+    }
+  }
 }
 
 const platform = process.argv[2]

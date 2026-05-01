@@ -87,7 +87,7 @@ jobs:
       - name: Prepare bundled defaults and runtimes for Rust tests
         run: |
           node scripts/prepare-bundled-defaults.mjs
-          node scripts/fetch-runtimes.mjs macos
+          node scripts/fetch-runtimes.mjs all
 
       - name: Run Rust tests
         run: cargo test --lib

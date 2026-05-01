@@ -5,6 +5,11 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-05-01
+
+### Fixed
+- Create placeholder files for missing platform binaries so Tauri config validation passes on all runners.
+
 ## [0.1.8] - 2026-05-01
 
 ### Fixed
@@ -65,6 +70,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Developer ID signing flow for private macOS distribution.
 - Cloudflare setup and code-signing documentation.
 
+[0.1.9]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.9
 [0.1.8]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.8
 [0.1.7]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.7
 [0.1.6]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.6

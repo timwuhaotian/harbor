@@ -5,6 +5,11 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-05-01
+
+### Fixed
+- Bundle Cloudflare tunnel token and hostname in harbor-defaults.bundle.json so the service can start without manual configuration.
+
 ## [0.1.12] - 2026-05-01
 
 ### Fixed

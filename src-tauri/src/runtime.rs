@@ -17,6 +17,8 @@ use crate::config::{
 };
 
 const BUNDLED_DEFAULTS_RESOURCE: &str = "resources/harbor-defaults.bundle.json";
+const BUNDLED_CLOUDFLARED_RESOURCE: &str = "resources/cloudflared";
+const BUNDLED_SING_BOX_RESOURCE: &str = "resources/sing-box";
 
 pub fn sing_box_args(config_path: &Path) -> Vec<String> {
     vec![
@@ -50,11 +52,49 @@ pub fn config_path(config_dir: &Path) -> PathBuf {
     config_dir.join("sing-box.json")
 }
 
-pub fn resolve_runtime_program(program: &str) -> PathBuf {
-    resolve_runtime_program_with(program, Path::is_file)
+pub fn resolve_runtime_program(app: &AppHandle, program: &str) -> PathBuf {
+    let program = program.trim();
+    let path = Path::new(program);
+
+    if path.components().count() > 1 {
+        return path.to_path_buf();
+    }
+
+    let bundled = resolve_bundled_binary(app, program);
+    if bundled.exists() {
+        return bundled;
+    }
+
+    resolve_system_program_with(program, Path::is_file)
 }
 
-pub fn resolve_runtime_program_with<F>(program: &str, exists: F) -> PathBuf
+fn resolve_bundled_binary(app: &AppHandle, program: &str) -> PathBuf {
+    let resource_name = if cfg!(windows) {
+        if program == "cloudflared" {
+            "cloudflared.exe"
+        } else if program == "sing-box" {
+            "sing-box.exe"
+        } else {
+            program
+        }
+    } else {
+        program
+    };
+
+    let resource = if resource_name == "cloudflared" || resource_name == "cloudflared.exe" {
+        BUNDLED_CLOUDFLARED_RESOURCE
+    } else if resource_name == "sing-box" || resource_name == "sing-box.exe" {
+        BUNDLED_SING_BOX_RESOURCE
+    } else {
+        return PathBuf::from(program);
+    };
+
+    app.path()
+        .resolve(resource, BaseDirectory::Resource)
+        .unwrap_or_else(|_| PathBuf::from(program))
+}
+
+pub fn resolve_system_program_with<F>(program: &str, exists: F) -> PathBuf
 where
     F: Fn(&Path) -> bool,
 {
@@ -245,7 +285,7 @@ fn spawn_logged_process(
         return Err(HarborError::Validation(format!("{source} path is required")));
     }
 
-    let resolved_program = resolve_runtime_program(program);
+    let resolved_program = resolve_runtime_program(&app, program);
     let mut command = Command::new(&resolved_program);
     command
         .args(args)
@@ -363,8 +403,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_runtime_program_should_prefer_homebrew_path_when_available() {
-        let path = resolve_runtime_program_with("sing-box", |candidate| {
+    fn resolve_system_program_should_prefer_homebrew_path_when_available() {
+        let path = resolve_system_program_with("sing-box", |candidate| {
             candidate == Path::new("/opt/homebrew/bin/sing-box")
         });
 
@@ -372,8 +412,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_runtime_program_should_keep_custom_path() {
-        let path = resolve_runtime_program_with("/custom/bin/cloudflared", |_| false);
+    fn resolve_system_program_should_keep_custom_path() {
+        let path = resolve_system_program_with("/custom/bin/cloudflared", |_| false);
 
         assert_eq!(path, PathBuf::from("/custom/bin/cloudflared"));
     }

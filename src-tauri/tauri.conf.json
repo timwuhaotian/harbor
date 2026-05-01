@@ -39,6 +39,15 @@
       "entitlements": "../build/entitlements.mac.plist",
       "signingIdentity": null
     },
-    "resources": ["resources/harbor-defaults.bundle.json"]
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "resources": [
+      "resources/harbor-defaults.bundle.json",
+      "resources/cloudflared",
+      "resources/sing-box"
+    ]
   }
 }

@@ -97,6 +97,27 @@ export function collectMacReleaseAssets({ bundleRoot, outDir, version }) {
   ]
 }
 
+export function collectWindowsReleaseAssets({ bundleRoot, outDir }) {
+  const resolvedBundleRoot = resolve(bundleRoot)
+  const resolvedOutDir = resolve(outDir)
+  mkdirSync(resolvedOutDir, { recursive: true })
+
+  const nsisSource = findFirstFile(join(resolvedBundleRoot, 'nsis'), /\.exe$/i)
+  const nsisDestination = join(resolvedOutDir, `harbor-setup.exe`)
+
+  copyFileSync(nsisSource, nsisDestination)
+
+  const portableSource = findFirstFile(join(resolvedBundleRoot, 'msi'), /\.msi$/i)
+  const portableDestination = join(resolvedOutDir, `harbor-setup.msi`)
+
+  copyFileSync(portableSource, portableDestination)
+
+  return [
+    { source: nsisSource, destination: nsisDestination },
+    { source: portableSource, destination: portableDestination },
+  ]
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2))
   const platform = options.platform
@@ -110,11 +131,15 @@ function main() {
     )
   }
 
-  if (platform !== 'macos') {
-    throw new Error(`${platform} release assets are placeholders and are not built yet`)
+  let assets
+  if (platform === 'macos') {
+    assets = collectMacReleaseAssets({ bundleRoot, outDir, version })
+  } else if (platform === 'windows') {
+    assets = collectWindowsReleaseAssets({ bundleRoot, outDir })
+  } else {
+    throw new Error(`${platform} release assets are not supported yet`)
   }
 
-  const assets = collectMacReleaseAssets({ bundleRoot, outDir, version })
   for (const asset of assets) {
     console.log(`Collected ${asset.source} -> ${asset.destination}`)
   }

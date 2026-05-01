@@ -61,8 +61,8 @@ pub fn default_settings() -> HarborSettings {
         websocket_path: "/harbor".to_string(),
         local_port: 18080,
         cloudflared_token: String::new(),
-        sing_box_path: "sing-box".to_string(),
-        cloudflared_path: "cloudflared".to_string(),
+        sing_box_path: String::new(),
+        cloudflared_path: String::new(),
     }
 }
 
@@ -179,16 +179,6 @@ pub fn validate_start_settings(settings: &HarborSettings) -> Result<(), HarborEr
         ));
     }
 
-    if settings.sing_box_path.trim().is_empty() {
-        return Err(HarborError::Validation("sing-box path is required".to_string()));
-    }
-
-    if settings.cloudflared_path.trim().is_empty() {
-        return Err(HarborError::Validation(
-            "cloudflared path is required".to_string(),
-        ));
-    }
-
     Ok(())
 }
 
@@ -243,8 +233,8 @@ mod tests {
             websocket_path: "/harbor ws".to_string(),
             local_port: 18080,
             cloudflared_token: "token".to_string(),
-            sing_box_path: "sing-box".to_string(),
-            cloudflared_path: "cloudflared".to_string(),
+            sing_box_path: String::new(),
+            cloudflared_path: String::new(),
         }
     }
 

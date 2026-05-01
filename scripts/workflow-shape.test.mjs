@@ -5,11 +5,11 @@ import { describe, expect, test } from 'vitest'
 describe('release workflow', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
 
-  test('uses macOS release build and keeps Windows/Linux placeholders', () => {
+  test('uses macOS and Windows release builds and keeps Linux placeholder', () => {
     expect(workflow).toContain('build-macos')
-    expect(workflow).toContain('windows-placeholder')
+    expect(workflow).toContain('build-windows')
     expect(workflow).toContain('linux-placeholder')
-    expect(workflow).not.toContain('windows-latest')
+    expect(workflow).toContain('windows-latest')
     expect(workflow).not.toContain('ubuntu-latest\n    steps:\n      - name: Build Linux')
   })
 

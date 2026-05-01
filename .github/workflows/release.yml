@@ -120,6 +120,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download macOS runtimes
+        run: node scripts/fetch-runtimes.mjs macos
+
       - name: Import signing certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
@@ -175,6 +178,51 @@ jobs:
     steps:
       - run: echo "Windows release build is intentionally deferred."
 
+  build-windows:
+    needs:
+      - detect-version-bump
+      - test
+    if: needs.detect-version-bump.outputs.should_publish == 'true'
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.detect-version-bump.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Windows runtimes
+        run: node scripts/fetch-runtimes.mjs windows
+
+      - name: Build Windows app
+        run: npm run tauri -- build
+
+      - name: Collect Windows release assets
+        run: node scripts/release-assets.mjs --platform windows --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "$VERSION"
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-windows
+          path: release-dist/
+          retention-days: 7
+
   linux-placeholder:
     needs: detect-version-bump
     if: false
@@ -186,6 +234,7 @@ jobs:
     needs:
       - detect-version-bump
       - build-macos
+      - build-windows
     if: needs.detect-version-bump.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     env:

@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 export type LatestVersion = {
   version: string;
   changelog: string;
@@ -67,7 +69,7 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateChec
 
 export async function downloadUpdate(token: string): Promise<{ ok: boolean; error?: string }> {
   if (!token.trim()) {
-    return { ok: false, error: '请先输入注册令牌' };
+    return { ok: false, error: t('err.enterTokenFirst') };
   }
 
   try {
@@ -81,7 +83,7 @@ export async function downloadUpdate(token: string): Promise<{ ok: boolean; erro
     const data = await res.json();
 
     if (!data.valid) {
-      return { ok: false, error: '令牌无效或已过期' };
+      return { ok: false, error: t('err.tokenInvalid') };
     }
 
     if (data.downloadUrl) {
@@ -89,9 +91,9 @@ export async function downloadUpdate(token: string): Promise<{ ok: boolean; erro
       return { ok: true };
     }
 
-    return { ok: false, error: '未获取到下载链接' };
+    return { ok: false, error: t('err.noDownloadUrl') };
   } catch {
-    return { ok: false, error: '网络错误，请稍后重试' };
+    return { ok: false, error: t('err.networkRetry') };
   }
 }
 

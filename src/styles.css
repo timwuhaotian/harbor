@@ -180,8 +180,16 @@ code {
 .brand {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .brand-icon {
@@ -196,6 +204,7 @@ code {
   font-size: 14px;
   color: var(--accent);
   position: relative;
+  flex-shrink: 0;
 }
 
 .brand-icon::after {
@@ -210,6 +219,55 @@ code {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 0;
+}
+
+.lang-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.lang-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.lang-option span {
+  display: block;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  user-select: none;
+  line-height: 1.4;
+}
+
+.lang-option input[type="radio"]:checked + span {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.lang-option span:hover {
+  color: var(--text-secondary);
+}
+
+.lang-option input[type="radio"]:checked + span:hover {
+  color: var(--bg);
 }
 
 .eyebrow {
@@ -351,6 +409,139 @@ code {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.dep-warning {
+  padding: 12px 16px;
+  margin-top: 12px;
+  background: var(--error-bg);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: var(--radius);
+}
+
+.dep-warning h2 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--error);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.dep-warning p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.general-card {
+  padding: 16px 20px;
+  margin-top: 12px;
+}
+
+.general-card h2 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.toggle-row-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-row-inline span {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.toggle-row-inline input[type="checkbox"] {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-row-inline input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-row-inline input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+
+.toggle-row-inline input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.toggle-row--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.toggle-row span {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.toggle-row input[type="checkbox"] {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-row input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-row input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+
+.toggle-row input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+  background: #fff;
 }
 
 /* Main Content */
@@ -587,6 +778,13 @@ textarea {
   background: var(--text-muted);
 }
 
+.hero-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .version-check {
   margin-top: 6px;
   font-size: 11px;
@@ -596,6 +794,10 @@ textarea {
 
 .version-check:hover {
   color: var(--text-secondary);
+}
+
+.hero-actions-row .version-check {
+  margin-top: 0;
 }
 
 .update-card {
@@ -679,4 +881,72 @@ textarea {
   font-weight: 400;
   color: var(--text-muted);
   margin-left: 4px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 420px;
+  width: 90%;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.about-header .brand-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.about-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.about-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.about-disclaimer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.about-disclaimer h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warning);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.about-disclaimer p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }

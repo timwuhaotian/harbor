@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 export type HarborStatus = {
   running: boolean;
   singBoxRunning: boolean;
@@ -18,14 +20,14 @@ export type HarborSettings = {
 
 export function statusLabel(status: HarborStatus): string {
   if (status.running && status.singBoxRunning && status.cloudflaredRunning) {
-    return '在线';
+    return t('app.online');
   }
 
   if (status.singBoxRunning || status.cloudflaredRunning) {
-    return '启动中';
+    return t('app.starting');
   }
 
-  return '离线';
+  return t('app.offline');
 }
 
 export function maskToken(token: string): string {
@@ -36,7 +38,7 @@ export function maskToken(token: string): string {
   }
 
   if (trimmed.length <= 12) {
-    return '已存储的令牌';
+    return t('app.storedToken');
   }
 
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;

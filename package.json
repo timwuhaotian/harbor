@@ -1,7 +1,7 @@
 {
   "name": "harbor",
   "private": true,
-  "version": "0.1.14",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "bump": "node scripts/bump-version.mjs",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-autostart": "^2.5.1",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {

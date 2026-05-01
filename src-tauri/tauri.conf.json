@@ -49,7 +49,9 @@
       "resources/cloudflared",
       "resources/cloudflared.exe",
       "resources/sing-box",
-      "resources/sing-box.exe"
+      "resources/sing-box.exe",
+      "icons/icon-tray.png",
+      "icons/icon-tray-active.png"
     ]
   }
 }

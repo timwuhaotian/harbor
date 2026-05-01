@@ -5,6 +5,22 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-05-02
+
+### Added
+- English/Chinese bilingual support with in-app language switcher.
+- English as default language; toggle between EN and 中文 in the sidebar header.
+- Locale-aware system tray menu and tooltip text.
+
+### Changed
+- Auto-launch toggle now uses an inline horizontal layout (label + switch on same row).
+- Language switcher uses a horizontal pill-style radio button group.
+
+### Fixed
+- Kill child process groups on stop/quit to prevent stale sing-box and cloudflared processes.
+- Stop services when closing the app window.
+- Fix log panel auto-scrolling back to top; logs now append incrementally and only auto-follow when near the bottom.
+
 ## [0.1.14] - 2026-05-01
 
 ### Fixed
@@ -98,6 +114,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Developer ID signing flow for private macOS distribution.
 - Cloudflare setup and code-signing documentation.
 
+[1.0.0]: https://github.com/timwuhaotian/harbor/releases/tag/v1.0.0
 [0.1.9]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.9
 [0.1.8]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.8
 [0.1.7]: https://github.com/timwuhaotian/harbor/releases/tag/v0.1.7

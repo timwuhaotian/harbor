@@ -1,14 +1,30 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import QRCode from 'qrcode';
 
 import './styles.css';
-import { restoreSettingsFromSaved, statusLabel, type HarborSettings, type HarborStatus } from './ui';
+import {
+  restoreSettingsFromSaved,
+  statusLabel,
+  type HarborSettings,
+  type HarborStatus,
+} from './ui';
 import { checkForUpdate, downloadUpdate, skipVersion, getStoredDownloadToken, storeDownloadToken, type UpdateCheckResult } from './update-checker';
+import { getLocale, setLocale, initLocale, t } from './i18n';
 
 type Preview = {
   vlessLink: string;
   singBoxConfig: unknown;
+};
+
+type DependencyStatus = {
+  singBoxOk: boolean;
+  cloudflaredOk: boolean;
+  singBoxPath: string;
+  cloudflaredPath: string;
+  singBoxVersion: string | null;
+  cloudflaredVersion: string | null;
 };
 
 type HarborLogEvent = {
@@ -20,7 +36,7 @@ type HarborLogEvent = {
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 
 if (!appRoot) {
-    throw new Error('缺少 #app 根元素');
+    throw new Error(t('err.noRootElement'));
 }
 
 const app: HTMLDivElement = appRoot;
@@ -40,6 +56,9 @@ let updateInfo: UpdateCheckResult | null = null;
 let updateError = '';
 let checkingUpdate = false;
 let downloadToken = getStoredDownloadToken();
+let dependencyStatus: DependencyStatus | null = null;
+let autoLaunchEnabled = false;
+let showAbout = false;
 const logs: HarborLogEvent[] = [];
 
 function persistSettings(nextSettings: HarborSettings): void {
@@ -55,7 +74,7 @@ function readForm(): HarborSettings {
   const form = app.querySelector<HTMLFormElement>('#settings-form');
 
   if (!form) {
-    throw new Error('设置表单未挂载');
+    throw new Error(t('err.formNotMounted'));
   }
 
   const data = new FormData(form);
@@ -91,6 +110,9 @@ async function refreshStatus(): Promise<void> {
   const prev = status;
   status = await invoke<HarborStatus>('get_status');
   if (JSON.stringify(status) !== JSON.stringify(prev)) {
+    try {
+      await invoke('update_tray_icon', { running: status.running });
+    } catch { /* non-critical */ }
     render();
   }
 }
@@ -115,6 +137,7 @@ async function startHarbor(): Promise<void> {
   try {
     status = await invoke<HarborStatus>('start_harbor', { settings });
     preview = status.vlessLink ? { vlessLink: status.vlessLink, singBoxConfig: null } : preview;
+    try { await invoke('update_tray_icon', { running: status.running }); } catch { /* non-critical */ }
   } catch (error) {
     errorMessage = String(error);
   } finally {
@@ -130,6 +153,7 @@ async function stopHarbor(): Promise<void> {
 
   try {
     status = await invoke<HarborStatus>('stop_harbor');
+    try { await invoke('update_tray_icon', { running: false }); } catch { /* non-critical */ }
   } catch (error) {
     errorMessage = String(error);
   } finally {
@@ -150,14 +174,14 @@ async function copyVlessLink(): Promise<void> {
 
 function render(): void {
   if (!settings) {
-    app.innerHTML = '<div class="loading">正在加载 Harbor...</div>';
+    app.innerHTML = `<div class="loading">${t('app.loading')}</div>`;
     return;
   }
 
   const label = statusLabel(status);
   const link = preview?.vlessLink ?? status.vlessLink ?? '';
   const hasRuntimeProcess = status.singBoxRunning || status.cloudflaredRunning;
-  const statusClass = label === '在线' ? 'online' : label === '启动中' ? 'starting' : '';
+  const statusClass = label === t('app.online') ? 'online' : label === t('app.starting') ? 'starting' : '';
   const logLines = logs
     .slice(-120)
     .map(
@@ -166,37 +190,54 @@ function render(): void {
     )
     .join('');
 
+  const locale = getLocale();
+
   app.innerHTML = `
     <section class="shell">
-      <aside class="hero-panel" aria-label="Harbor 概览">
+      <aside class="hero-panel" aria-label="Harbor Overview">
         <div class="sidebar-header">
           <div class="brand">
-            <div class="brand-icon">H</div>
-            <h1>Harbor <span class="app-version">v${__APP_VERSION__}</span></h1>
+            <div class="brand-left">
+              <div class="brand-icon">H</div>
+              <h1>Harbor <span class="app-version">v${__APP_VERSION__}</span></h1>
+            </div>
+            <div class="lang-switch" role="radiogroup" aria-label="${t('app.language')}">
+              <label class="lang-option">
+                <input type="radio" name="lang" value="en" ${locale === 'en' ? 'checked' : ''} />
+                <span>EN</span>
+              </label>
+              <label class="lang-option">
+                <input type="radio" name="lang" value="zh-CN" ${locale === 'zh-CN' ? 'checked' : ''} />
+                <span>中文</span>
+              </label>
+            </div>
           </div>
-          <p class="eyebrow">个人出口节点</p>
-          <p class="lede">通过 Cloudflare Tunnel 将 Mac 变为私有的 VLESS WebSocket 出口节点。</p>
-          <button id="check-update-button" class="ghost version-check" ${checkingUpdate ? 'disabled' : ''}>${checkingUpdate ? '检查中...' : '检查更新'}</button>
+          <p class="eyebrow">${t('app.heroEyebrow')}</p>
+          <p class="lede">${t('app.heroDesc')}</p>
+          <div class="hero-actions-row">
+            <button id="check-update-button" class="ghost version-check" ${checkingUpdate ? 'disabled' : ''}>${checkingUpdate ? t('app.checking') : t('app.checkUpdate')}</button>
+            <button id="about-button" class="ghost version-check">${t('app.about')}</button>
+          </div>
         </div>
 
         ${updateInfo?.hasUpdate ? `
         <div class="update-card">
           <div class="update-card-header">
-            <span class="update-badge">新版本</span>
+            <span class="update-badge">${t('app.newVersion')}</span>
             <span class="update-version">v${escapeHtml(updateInfo.version ?? '')}</span>
           </div>
           ${updateInfo.changelog ? `<div class="update-changelog">${formatChangelog(escapeHtml(updateInfo.changelog))}</div>` : ''}
           ${updateError ? `<div class="update-error">${escapeHtml(updateError)}</div>` : ''}
           <div class="update-actions">
-            <button id="download-update-button" class="primary">${downloadToken ? '下载更新' : '请先输入注册令牌'}</button>
-            <button id="skip-update-button" class="ghost">跳过此版本</button>
+            <button id="download-update-button" class="primary">${downloadToken ? t('app.downloadUpdate') : t('app.downloadTokenRequired')}</button>
+            <button id="skip-update-button" class="ghost">${t('app.skipVersion')}</button>
           </div>
         </div>
         ` : ''}
 
         <div class="status-panel">
           <div class="status-header">
-            <h2>节点状态</h2>
+            <h2>${t('app.nodeStatus')}</h2>
             <div class="status-indicator">
               <span class="status-dot ${statusClass}"></span>
               <span>${label}</span>
@@ -205,91 +246,124 @@ function render(): void {
           <div class="status-processes">
             <div class="process-item">
               <span class="process-name">sing-box</span>
-              <span class="process-status ${status.singBoxRunning ? 'running' : 'stopped'}">${status.singBoxRunning ? '运行中' : '已停止'}</span>
+              <span class="process-status ${status.singBoxRunning ? 'running' : 'stopped'}">${status.singBoxRunning ? t('app.running') : t('app.stopped')}</span>
             </div>
             <div class="process-item">
               <span class="process-name">cloudflared</span>
-              <span class="process-status ${status.cloudflaredRunning ? 'running' : 'stopped'}">${status.cloudflaredRunning ? '运行中' : '已停止'}</span>
+              <span class="process-status ${status.cloudflaredRunning ? 'running' : 'stopped'}">${status.cloudflaredRunning ? t('app.running') : t('app.stopped')}</span>
             </div>
           </div>
         </div>
 
-        <div class="help-card">
-          <h2>Cloudflare 路由</h2>
-          <p>设置隧道公共主机名，转发 WebSocket 流量至 <code>http://127.0.0.1:${settings.localPort}</code></p>
+        <div class="general-card">
+          <h2>${t('app.general')}</h2>
+          <div class="toggle-row-inline">
+            <span>${t('app.autoLaunch')}</span>
+            <input id="auto-launch-toggle" type="checkbox" ${autoLaunchEnabled ? 'checked' : ''} />
+          </div>
         </div>
+
+        <div class="help-card">
+          <h2>${t('app.cfRoute')}</h2>
+          <p>${t('app.cfRouteDesc')} <code>http://127.0.0.1:${settings.localPort}</code></p>
+        </div>
+
+        ${dependencyStatus && (!dependencyStatus.singBoxOk || !dependencyStatus.cloudflaredOk) ? `
+        <div class="dep-warning">
+          <h2>${t('app.depMissing')}</h2>
+          ${!dependencyStatus.singBoxOk ? `<p>${t('app.depSingBoxMissing')}</p>` : ''}
+          ${!dependencyStatus.cloudflaredOk ? `<p>${t('app.depCloudflaredMissing')}</p>` : ''}
+        </div>
+        ` : ''}
       </aside>
 
       <section class="content-panel">
         <div class="panel-section">
-          <div class="section-title">配置</div>
+          <div class="section-title">${t('app.config')}</div>
           <form id="settings-form" class="settings-grid">
             <label>
-              <span>Cloudflare 主机名</span>
+              <span>${t('app.hostname')}</span>
               <input name="hostname" autocomplete="off" value="${escapeAttribute(settings.hostname)}" placeholder="harbor.example.com" />
             </label>
             <label>
-              <span>隧道令牌</span>
-              <input name="cloudflaredToken" type="password" value="${escapeAttribute(settings.cloudflaredToken)}" placeholder="粘贴命名隧道令牌" />
+              <span>${t('app.tunnelToken')}</span>
+              <input name="cloudflaredToken" type="password" value="${escapeAttribute(settings.cloudflaredToken)}" placeholder="${t('app.tunnelTokenPlaceholder')}" />
             </label>
             <label>
-              <span>VLESS UUID</span>
+              <span>${t('app.vlessUuid')}</span>
               <input name="uuid" autocomplete="off" value="${escapeAttribute(settings.uuid)}" />
             </label>
             <label>
-              <span>WebSocket 路径</span>
+              <span>${t('app.wsPath')}</span>
               <input name="websocketPath" value="${escapeAttribute(settings.websocketPath)}" placeholder="/harbor" />
             </label>
             <label>
-              <span>本地端口</span>
+              <span>${t('app.localPort')}</span>
               <input name="localPort" type="number" min="1" max="65535" value="${settings.localPort}" />
             </label>
             <label>
-              <span>sing-box 路径</span>
+              <span>${t('app.singBoxPath')}</span>
               <input name="singBoxPath" value="${escapeAttribute(settings.singBoxPath)}" placeholder="sing-box" />
             </label>
             <label>
-              <span>cloudflared 路径</span>
+              <span>${t('app.cloudflaredPath')}</span>
               <input name="cloudflaredPath" value="${escapeAttribute(settings.cloudflaredPath)}" placeholder="cloudflared" />
             </label>
             <label>
-              <span>注册令牌</span>
-              <input name="downloadToken" type="password" value="${escapeAttribute(downloadToken)}" placeholder="粘贴购买后获取的下载令牌" />
+              <span>${t('app.regToken')}</span>
+              <input name="downloadToken" type="password" value="${escapeAttribute(downloadToken)}" placeholder="${t('app.regTokenPlaceholder')}" />
             </label>
           </form>
 
           ${errorMessage ? `<div class="error" role="alert">${escapeHtml(errorMessage)}</div>` : ''}
 
           <div class="actions-row">
-            <button id="start-button" class="primary" ${busy || hasRuntimeProcess ? 'disabled' : ''}>${busy ? '处理中...' : '启动 Harbor'}</button>
-            <button id="stop-button" class="secondary" ${busy || !hasRuntimeProcess ? 'disabled' : ''}>停止</button>
-            <button id="preview-button" class="ghost" ${busy ? 'disabled' : ''}>刷新链接</button>
+            <button id="start-button" class="primary" ${busy || hasRuntimeProcess ? 'disabled' : ''}>${busy ? t('app.processing') : t('app.start')}</button>
+            <button id="stop-button" class="secondary" ${busy || !hasRuntimeProcess ? 'disabled' : ''}>${t('app.stop')}</button>
+            <button id="preview-button" class="ghost" ${busy ? 'disabled' : ''}>${t('app.refreshLink')}</button>
           </div>
         </div>
 
         <div class="panel-section">
-          <div class="section-title">连接</div>
-          <section class="link-card" aria-label="生成的 VLESS 链接">
+          <div class="section-title">${t('app.connection')}</div>
+          <section class="link-card" aria-label="Generated VLESS link">
             <div class="link-body">
-              <textarea readonly rows="3" aria-label="VLESS 链接">${escapeHtml(link)}</textarea>
+              <textarea readonly rows="3" aria-label="VLESS link">${escapeHtml(link)}</textarea>
               <div class="link-side">
-                <canvas id="qr-canvas" width="96" height="96" aria-label="VLESS 二维码"></canvas>
-                <button id="copy-button" class="secondary" ${link ? '' : 'disabled'}>复制</button>
+                <canvas id="qr-canvas" width="96" height="96" aria-label="VLESS QR code"></canvas>
+                <button id="copy-button" class="secondary" ${link ? '' : 'disabled'}>${t('app.copy')}</button>
               </div>
             </div>
           </section>
         </div>
 
         <div class="panel-section">
-          <section class="logs-card" aria-label="运行日志">
+          <section class="logs-card" aria-label="Logs">
             <div class="section-heading">
-              <h2>运行日志</h2>
-              <button id="clear-logs-button" class="ghost">清除</button>
+              <h2>${t('app.logs')}</h2>
+              <button id="clear-logs-button" class="ghost">${t('app.clear')}</button>
             </div>
-            <div class="logs">${logLines || '<p class="empty">Harbor 启动后日志将显示在此处。</p>'}</div>
+            <div class="logs">${logLines || `<p class="empty">${t('app.logsEmpty')}</p>`}</div>
           </section>
         </div>
       </section>
+
+      ${showAbout ? `
+      <div class="modal-overlay" id="about-overlay">
+        <div class="modal-content about-modal">
+          <div class="about-header">
+            <div class="brand-icon">H</div>
+            <h1>Harbor <span class="app-version">v${__APP_VERSION__}</span></h1>
+          </div>
+          <p class="about-desc">${t('app.aboutDesc')}</p>
+          <div class="about-disclaimer">
+            <h3>${t('app.disclaimer')}</h3>
+            <p>${t('app.disclaimerBody')}</p>
+          </div>
+          <button id="close-about-button" class="primary">${t('app.close')}</button>
+        </div>
+      </div>
+      ` : ''}
     </section>
   `;
 
@@ -349,6 +423,11 @@ function bindEvents(): void {
   });
 
   app.querySelector('#check-update-button')?.addEventListener('click', () => void manualCheckUpdate());
+  app.querySelector('#about-button')?.addEventListener('click', () => { showAbout = true; render(); });
+  app.querySelector('#close-about-button')?.addEventListener('click', () => { showAbout = false; render(); });
+  app.querySelector('#about-overlay')?.addEventListener('click', (e) => {
+    if (e.target === app.querySelector('#about-overlay')) { showAbout = false; render(); }
+  });
 
   app.querySelector('#download-update-button')?.addEventListener('click', () => void handleDownloadUpdate());
   app.querySelector('#skip-update-button')?.addEventListener('click', () => {
@@ -359,10 +438,34 @@ function bindEvents(): void {
     }
   });
 
+  app.querySelectorAll<HTMLInputElement>('.lang-option input[type="radio"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const next = input.value as 'en' | 'zh-CN';
+      setLocale(next);
+      void invoke('set_locale', { locale: next }).catch(() => {});
+      render();
+    });
+  });
+
   const tokenInput = app.querySelector<HTMLInputElement>('input[name="downloadToken"]');
   tokenInput?.addEventListener('change', () => {
     downloadToken = tokenInput.value;
     storeDownloadToken(downloadToken);
+    render();
+  });
+
+  app.querySelector<HTMLInputElement>('#auto-launch-toggle')?.addEventListener('change', async (e) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    try {
+      if (checked) {
+        await enable();
+      } else {
+        await disable();
+      }
+      autoLaunchEnabled = await isEnabled();
+    } catch {
+      autoLaunchEnabled = await isEnabled();
+    }
     render();
   });
 }
@@ -433,20 +536,42 @@ async function handleDownloadUpdate(): Promise<void> {
   const result = await downloadUpdate(downloadToken);
 
   if (!result.ok) {
-    updateError = result.error ?? '下载失败';
+    updateError = result.error ?? t('err.downloadFailed');
     render();
   }
 }
 
 async function bootstrap(): Promise<void> {
+  initLocale();
   const defaults = await invoke<HarborSettings>('get_default_settings');
   settings = restoreSettings(defaults);
   await listen<HarborLogEvent>('harbor-log', (event) => {
     logs.push(event.payload);
     appendLog(event.payload);
   });
+  await listen<string>('tray-action', (event) => {
+    if (event.payload === 'start') {
+      void startHarbor();
+    } else if (event.payload === 'stop') {
+      void stopHarbor();
+    } else if (event.payload === 'about') {
+      showAbout = true;
+      render();
+    }
+  });
   await refreshStatus();
   scheduleStatusPolling();
+
+  try {
+    dependencyStatus = await invoke<DependencyStatus>('check_dependencies', { settings });
+  } catch {
+    dependencyStatus = null;
+  }
+
+  try {
+    autoLaunchEnabled = await isEnabled();
+  } catch { /* non-critical */ }
+
   render();
 
   checkForUpdate(__APP_VERSION__).then((result) => {

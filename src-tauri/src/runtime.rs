@@ -1,6 +1,7 @@
 use std::{
     fs,
     io::{BufRead, BufReader, Read},
+    net::{Ipv4Addr, SocketAddrV4, TcpListener},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::Mutex,
@@ -9,7 +10,7 @@ use std::{
 };
 
 use serde::Serialize;
-use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, State};
+use tauri::{image::Image, path::BaseDirectory, AppHandle, Emitter, Manager, State};
 
 use crate::config::{
     build_preview, build_sing_box_config, default_settings, default_settings_from_json,
@@ -116,6 +117,59 @@ where
     PathBuf::from(program)
 }
 
+fn check_port_available(port: u16) -> Result<(), HarborError> {
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
+    match TcpListener::bind(addr) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            let user = find_port_user(port);
+            let msg = match user {
+                Some((name, pid)) => format!(
+                    "Port {} is already in use by {} (PID {}). Stop it first or change the local port.",
+                    port, name, pid
+                ),
+                None => format!(
+                    "Port {} is already in use by another process. Change the local port.",
+                    port
+                ),
+            };
+            Err(HarborError::Validation(msg))
+        }
+        Err(e) => Err(HarborError::Validation(format!(
+            "Cannot check port {}: {}",
+            port, e
+        ))),
+    }
+}
+
+fn find_port_user(port: u16) -> Option<(String, u32)> {
+    #[cfg(unix)]
+    {
+        let output = Command::new("lsof")
+            .args(["-i", &format!(":{}", port), "-sTCP:LISTEN", "-P", "-n"])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().skip(1) {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            if fields.len() >= 2 {
+                if let Ok(pid) = fields[1].parse::<u32>() {
+                    return Some((fields[0].to_string(), pid));
+                }
+            }
+        }
+        None
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = port;
+        None
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct HarborRuntime {
     sing_box: Option<Child>,
@@ -168,6 +222,7 @@ pub fn start_harbor(
     settings: HarborSettings,
 ) -> Result<HarborStatus, HarborError> {
     validate_start_settings(&settings)?;
+    check_port_available(settings.local_port)?;
 
     let preview = build_preview(&settings)?;
     let app_config_dir = app
@@ -234,6 +289,108 @@ pub fn get_status(state: State<'_, Mutex<HarborRuntime>>) -> Result<HarborStatus
     let mut runtime = lock_runtime(&state)?;
     runtime.refresh();
     Ok(runtime.status())
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DependencyStatus {
+    pub sing_box_ok: bool,
+    pub cloudflared_ok: bool,
+    pub sing_box_path: String,
+    pub cloudflared_path: String,
+    pub sing_box_version: Option<String>,
+    pub cloudflared_version: Option<String>,
+}
+
+#[tauri::command]
+pub fn check_dependencies(
+    app: AppHandle,
+    settings: HarborSettings,
+) -> Result<DependencyStatus, HarborError> {
+    let sing_box_path = resolve_runtime_program(&app, &settings.sing_box_path);
+    let cloudflared_path = resolve_runtime_program(&app, &settings.cloudflared_path);
+
+    let sing_box_ok = sing_box_path.is_file();
+    let cloudflared_ok = cloudflared_path.is_file();
+
+    let sing_box_version = if sing_box_ok {
+        Command::new(&sing_box_path)
+            .arg("version")
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    } else {
+        None
+    };
+
+    let cloudflared_version = if cloudflared_ok {
+        Command::new(&cloudflared_path)
+            .arg("version")
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+                } else {
+                    None
+                }
+            })
+    } else {
+        None
+    };
+
+    Ok(DependencyStatus {
+        sing_box_ok,
+        cloudflared_ok,
+        sing_box_path: sing_box_path.to_string_lossy().to_string(),
+        cloudflared_path: cloudflared_path.to_string_lossy().to_string(),
+        sing_box_version,
+        cloudflared_version,
+    })
+}
+
+#[cfg(not(test))]
+#[tauri::command]
+pub fn update_tray_icon(app: AppHandle, running: bool) -> Result<(), HarborError> {
+    let tray_state = app.state::<crate::TrayState>();
+    let tray = &tray_state.tray;
+
+    let icon_name = if running {
+        "icons/icon-tray-active.png"
+    } else {
+        "icons/icon-tray.png"
+    };
+
+    let path = app
+        .path()
+        .resolve(icon_name, BaseDirectory::Resource)
+        .map_err(|e| HarborError::Runtime(e.to_string()))?;
+
+    let icon = Image::from_path(&path)
+        .map_err(|e| HarborError::Runtime(format!("Failed to load tray icon: {}", e)))?;
+
+    let locale = tray_state.locale.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let is_zh = locale == "zh-CN";
+
+    tray
+        .set_icon(Some(icon))
+        .map_err(|e| HarborError::Runtime(e.to_string()))?;
+
+    tray
+        .set_tooltip(Some(if running {
+            if is_zh { "Harbor - 服务运行中" } else { "Harbor - Running" }
+        } else {
+            if is_zh { "Harbor - 已停止" } else { "Harbor - Stopped" }
+        }))
+        .map_err(|e| HarborError::Runtime(e.to_string()))?;
+
+    Ok(())
 }
 
 impl HarborRuntime {
@@ -371,14 +528,35 @@ fn stop_child(child: &mut Option<Child>) {
         unsafe {
             libc::killpg(pid as i32, libc::SIGTERM);
         }
+        for _ in 0..30 {
+            if process.try_wait().unwrap_or(None).is_some() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+        unsafe {
+            libc::killpg(pid as i32, libc::SIGKILL);
+        }
+        let _ = process.wait();
     }
 
     #[cfg(not(unix))]
     {
         let _ = process.kill();
+        let _ = process.wait();
     }
+}
 
-    let _ = process.wait();
+pub fn force_kill_all_runtime_processes() {
+    #[cfg(unix)]
+    {
+        for process_name in ["sing-box", "cloudflared"] {
+            let output = std::process::Command::new("pkill")
+                .args(["-9", "-x", process_name])
+                .output();
+            let _ = output;
+        }
+    }
 }
 
 impl Drop for HarborRuntime {
@@ -442,5 +620,28 @@ mod tests {
         let path = resolve_system_program_with("/custom/bin/cloudflared", |_| false);
 
         assert_eq!(path, PathBuf::from("/custom/bin/cloudflared"));
+    }
+
+    #[test]
+    fn check_port_available_should_pass_on_unused_port_range() {
+        use std::net::UdpSocket;
+        let sock = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+            .expect("should bind UDP to find a free TCP port");
+        let port = sock.local_addr().unwrap().port();
+        drop(sock);
+        let result = check_port_available(port);
+        assert!(result.is_ok(), "expected port {} to be free: {:?}", port, result);
+    }
+
+    #[test]
+    fn check_port_available_should_fail_on_occupied_port() {
+        let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+            .expect("should bind to random port");
+        let port = listener.local_addr().unwrap().port();
+        let result = check_port_available(port);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains(&port.to_string()));
+        assert!(msg.contains("already in use"));
     }
 }

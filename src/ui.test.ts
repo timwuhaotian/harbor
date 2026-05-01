@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import { maskToken, restoreSettingsFromSaved, statusLabel, type HarborSettings, type HarborStatus } from './ui';
+import {
+  maskToken,
+  restoreSettingsFromSaved,
+  statusLabel,
+  type HarborSettings,
+  type HarborStatus,
+} from './ui';
 
 function status(overrides: Partial<HarborStatus>): HarborStatus {
   return {
@@ -17,15 +23,15 @@ describe('statusLabel', () => {
   test('reports ready when both processes are running', () => {
     expect(
       statusLabel(status({ running: true, singBoxRunning: true, cloudflaredRunning: true })),
-    ).toBe('在线');
+    ).toBe('Online');
   });
 
   test('reports partial state when only one process is running', () => {
-    expect(statusLabel(status({ singBoxRunning: true }))).toBe('启动中');
+    expect(statusLabel(status({ singBoxRunning: true }))).toBe('Starting');
   });
 
   test('reports stopped when no process is running', () => {
-    expect(statusLabel(status({}))).toBe('离线');
+    expect(statusLabel(status({}))).toBe('Offline');
   });
 });
 

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+.DS_Store
+*.log
+.env
+src-tauri/resources/harbor-defaults.local.json
+src-tauri/resources/harbor-defaults.bundle.json
+
+# Downloaded runtime binaries (fetched by CI/CD and locally via fetch-runtimes.mjs)
+src-tauri/resources/cloudflared
+src-tauri/resources/cloudflared.exe
+src-tauri/resources/sing-box
+src-tauri/resources/sing-box.exe

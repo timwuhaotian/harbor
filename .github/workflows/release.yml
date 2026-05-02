@@ -1,0 +1,313 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  detect-version-bump:
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.version.outputs.should_publish }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect package version release
+        id: version
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const { execSync } = require('child_process')
+
+          const currentVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
+          const tag = `v${currentVersion}`
+          const refName = process.env.GITHUB_REF_NAME || ''
+          const refType = process.env.GITHUB_REF_TYPE || ''
+
+          let shouldPublish = false
+
+          // If triggered by a tag push (v*), always publish
+          if (refType === 'tag' && refName === tag) {
+            shouldPublish = true
+          } else {
+            // For branch pushes: check if tag already points to HEAD
+            try {
+              const headSha = execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: 'pipe' }).trim()
+              const tagSha = execSync(`git rev-parse ${tag}^{commit}`, { encoding: 'utf8', stdio: 'pipe' }).trim()
+              if (headSha !== tagSha) {
+                shouldPublish = true
+              }
+            } catch {
+              // Tag doesn't exist at all — safe to publish
+              shouldPublish = true
+            }
+          }
+
+          if (shouldPublish === true) {
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8')
+            if (!changelog.includes(`## [${currentVersion}]`)) {
+              throw new Error(`Missing changelog entry for ${currentVersion}. Add it before releasing.`)
+            }
+          }
+
+          console.log(`refType=${refType}, refName=${refName}, version=${currentVersion}, tag=${tag}, should_publish=${shouldPublish}`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${currentVersion}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_publish=${shouldPublish}\n`)
+          NODE
+
+  test:
+    needs: detect-version-bump
+    if: needs.detect-version-bump.outputs.should_publish == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate changelog
+        run: npm run validate:changelog
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Prepare bundled defaults and runtimes for Rust tests
+        run: |
+          node scripts/prepare-bundled-defaults.mjs
+          node scripts/fetch-runtimes.mjs all
+
+      - name: Run Rust tests
+        run: cargo test --lib
+        working-directory: src-tauri
+
+  build-macos:
+    needs:
+      - detect-version-bump
+      - test
+    if: needs.detect-version-bump.outputs.should_publish == 'true'
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.detect-version-bump.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download runtimes
+        run: node scripts/fetch-runtimes.mjs all
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          DETECTED_CERT_ID=$(security find-identity -v -p codesigning build.keychain | awk -F'"' '/Developer ID Application:/ {print $2; exit}')
+          CERT_ID="${MACOS_SIGNING_IDENTITY:-$DETECTED_CERT_ID}"
+          if [ -z "$CERT_ID" ]; then
+            echo "No Developer ID Application identity found in imported certificate."
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
+          echo "CSC_NAME=$CERT_ID" >> "$GITHUB_ENV"
+
+      - name: Codesign bundled runtime binaries
+        run: |
+          for bin in src-tauri/resources/cloudflared src-tauri/resources/sing-box; do
+            if [ -f "$bin" ]; then
+              codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$bin"
+              echo "Signed $bin"
+            fi
+          done
+
+      - name: Build signed macOS app
+        env:
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: npm run build:mac:signed
+
+      - name: Verify macOS signature
+        run: npm run verify:mac-signature
+
+      - name: Collect macOS release assets
+        run: node scripts/release-assets.mjs --platform macos --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "$VERSION"
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-macos
+          path: release-dist/
+          retention-days: 7
+
+  windows-placeholder:
+    needs: detect-version-bump
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Windows release build is intentionally deferred."
+
+  build-windows:
+    needs:
+      - detect-version-bump
+      - test
+    if: needs.detect-version-bump.outputs.should_publish == 'true'
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.detect-version-bump.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Windows runtimes
+        run: node scripts/fetch-runtimes.mjs windows
+
+      - name: Build Windows app
+        run: npm run tauri -- build
+
+      - name: Collect Windows release assets
+        run: node scripts/release-assets.mjs --platform windows --bundle-root src-tauri/target/release/bundle --out-dir release-dist --version "${Env:VERSION}"
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-windows
+          path: release-dist/
+          retention-days: 7
+
+  linux-placeholder:
+    needs: detect-version-bump
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Linux release build is intentionally deferred."
+
+  publish-release:
+    needs:
+      - detect-version-bump
+      - build-macos
+      - build-windows
+    if: needs.detect-version-bump.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.detect-version-bump.outputs.version }}
+      TAG: ${{ needs.detect-version-bump.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: release-dist
+          merge-multiple: true
+
+      - name: Prepare release notes
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          const version = process.env.VERSION
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8').split(/\r?\n/)
+          const start = changelog.findIndex((line) => line.startsWith(`## [${version}]`))
+          if (start === -1) {
+            throw new Error(`Missing changelog entry for ${version}`)
+          }
+
+          let end = changelog.length
+          for (let index = start + 1; index < changelog.length; index += 1) {
+            if (changelog[index].startsWith('## [')) {
+              end = index
+              break
+            }
+          }
+
+          const releaseNotes = changelog.slice(start + 1, end).join('\n').trim()
+          fs.writeFileSync('release-notes.md', `${releaseNotes}\n`)
+          NODE
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file release-notes.md
+            gh release upload "$TAG" release-dist/* --clobber
+          else
+            gh release create "$TAG" release-dist/* --title "$TAG" --notes-file release-notes.md
+          fi

@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  maskToken,
   restoreSettingsFromSaved,
   statusLabel,
   type HarborSettings,
@@ -32,16 +31,6 @@ describe('statusLabel', () => {
 
   test('reports stopped when no process is running', () => {
     expect(statusLabel(status({}))).toBe('Offline');
-  });
-});
-
-describe('maskToken', () => {
-  test('keeps empty token empty', () => {
-    expect(maskToken('')).toBe('');
-  });
-
-  test('masks long tokens without hiding that a token exists', () => {
-    expect(maskToken('abcdefghijklmnopqrstuvwxyz')).toBe('abcd...wxyz');
   });
 });
 

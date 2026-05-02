@@ -10,7 +10,7 @@ import {
   type HarborSettings,
   type HarborStatus,
 } from './ui';
-import { checkForUpdate, downloadUpdate, skipVersion, getStoredDownloadToken, storeDownloadToken, type UpdateCheckResult } from './update-checker';
+import { checkForUpdate, downloadUpdate, skipVersion, type UpdateCheckResult } from './update-checker';
 import { getLocale, setLocale, initLocale, t } from './i18n';
 
 type Preview = {
@@ -55,7 +55,6 @@ let busy = false;
 let updateInfo: UpdateCheckResult | null = null;
 let updateError = '';
 let checkingUpdate = false;
-let downloadToken = getStoredDownloadToken();
 let dependencyStatus: DependencyStatus | null = null;
 let autoLaunchEnabled = false;
 let showAbout = false;
@@ -229,7 +228,7 @@ function render(): void {
           ${updateInfo.changelog ? `<div class="update-changelog">${formatChangelog(escapeHtml(updateInfo.changelog))}</div>` : ''}
           ${updateError ? `<div class="update-error">${escapeHtml(updateError)}</div>` : ''}
           <div class="update-actions">
-            <button id="download-update-button" class="primary">${downloadToken ? t('app.downloadUpdate') : t('app.downloadTokenRequired')}</button>
+            <button id="download-update-button" class="primary">${t('app.downloadUpdate')}</button>
             <button id="skip-update-button" class="ghost">${t('app.skipVersion')}</button>
           </div>
         </div>
@@ -308,10 +307,6 @@ function render(): void {
             <label>
               <span>${t('app.cloudflaredPath')}</span>
               <input name="cloudflaredPath" value="${escapeAttribute(settings.cloudflaredPath)}" placeholder="cloudflared" />
-            </label>
-            <label>
-              <span>${t('app.regToken')}</span>
-              <input name="downloadToken" type="password" value="${escapeAttribute(downloadToken)}" placeholder="${t('app.regTokenPlaceholder')}" />
             </label>
           </form>
 
@@ -447,13 +442,6 @@ function bindEvents(): void {
     });
   });
 
-  const tokenInput = app.querySelector<HTMLInputElement>('input[name="downloadToken"]');
-  tokenInput?.addEventListener('change', () => {
-    downloadToken = tokenInput.value;
-    storeDownloadToken(downloadToken);
-    render();
-  });
-
   app.querySelector<HTMLInputElement>('#auto-launch-toggle')?.addEventListener('change', async (e) => {
     const checked = (e.target as HTMLInputElement).checked;
     try {
@@ -533,12 +521,7 @@ async function manualCheckUpdate(): Promise<void> {
 }
 
 async function handleDownloadUpdate(): Promise<void> {
-  const result = await downloadUpdate(downloadToken);
-
-  if (!result.ok) {
-    updateError = result.error ?? t('err.downloadFailed');
-    render();
-  }
+  downloadUpdate();
 }
 
 async function bootstrap(): Promise<void> {

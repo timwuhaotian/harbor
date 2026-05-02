@@ -21,7 +21,7 @@ Cloudflare handles public TLS. Harbor runs plain WebSocket on `127.0.0.1`, and `
 - **System tray** — start/stop Harbor from the menu bar; close-to-tray behavior keeps it running
 - **Auto-launch** — optional login item for persistent operation
 - **EN/中文** — bilingual UI with in-app language switcher (also updates tray menu)
-- **Automatic updates** — built-in update checker with changelog display and token-verified downloads
+- **Automatic updates** — built-in update checker with changelog display and direct GitHub Releases download
 - **macOS + Windows** — signed macOS builds (DMG) and Windows installers (NSIS/MSI) via CI/CD
 - **Real-time logs** — live stdout/stderr from sing-box and cloudflared, shown inline
 - **Port conflict detection** — identifies which process is blocking the local port
@@ -95,7 +95,6 @@ Open Harbor and fill in:
 | Local port              | `18080` (default)                        | Yes      |
 | sing-box Path           | `sing-box` (or full path to override)    | No       |
 | cloudflared Path        | `cloudflared` (or full path to override) | No       |
-| Registration Token      | *(token for update downloads)*           | No       |
 
 ### Step 5: Start and Connect
 

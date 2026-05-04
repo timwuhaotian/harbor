@@ -40,8 +40,29 @@ export function restoreSettingsFromSaved(
 
   try {
     const saved = JSON.parse(rawSavedSettings) as Partial<HarborSettings>;
-    return { ...defaults, ...saved, cloudflaredToken: defaults.cloudflaredToken };
+    return {
+      ...defaults,
+      ...saved,
+      hostname: restoredText(saved.hostname, defaults.hostname, 'harbor.example.com'),
+      cloudflaredToken: restoredText(saved.cloudflaredToken, defaults.cloudflaredToken),
+      singBoxPath: restoredText(saved.singBoxPath, defaults.singBoxPath),
+      cloudflaredPath: restoredText(saved.cloudflaredPath, defaults.cloudflaredPath),
+    };
   } catch {
     return defaults;
   }
+}
+
+function restoredText(value: unknown, fallback: string, legacyDefault = ''): string {
+  const text = typeof value === 'string' ? value.trim() : '';
+
+  if (!text || text === legacyDefault) {
+    return fallback;
+  }
+
+  return text;
+}
+
+export function settingsForStorage(settings: HarborSettings): HarborSettings {
+  return { ...settings };
 }

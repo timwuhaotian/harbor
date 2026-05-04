@@ -174,7 +174,7 @@ Key design decisions:
 - **No local TLS certificates needed** — Cloudflare terminates TLS on the public hostname
 - **Token passed via environment variable** — never exposed in `ps` or process arguments
 - **sing-box config generated at runtime** — written to `~/Library/Application Support/com.harbor.exitnode/sing-box.json`
-- **Settings persisted locally** — stored in `localStorage` (tunnel token excluded from disk for safety)
+- **Settings persisted locally** — stored in `localStorage`; user-entered values override bundled defaults
 - **Bundled binaries** — `cloudflared` and `sing-box` included, no manual installation required
 - **Close-to-tray** — closing the window hides to system tray; the app stays running
 
@@ -253,7 +253,8 @@ harbor/
 │   ├── capabilities/
 │   │   └── default.json          # Tauri capability definitions
 │   ├── resources/
-│   │   └── harbor-defaults.bundle.json   # Bundled defaults (gitignored)
+│   │   ├── harbor-defaults.defaults.json # Hardcoded release defaults
+│   │   └── harbor-defaults.bundle.json   # Generated bundled defaults (gitignored)
 │   └── tauri.conf.json           # Tauri configuration
 ├── scripts/                      # Build, signing, and CI scripts
 │   ├── build-signed-mac.mjs      # macOS signed build + notarization
@@ -276,7 +277,7 @@ harbor/
 - The tunnel token is passed to `cloudflared` via `TUNNEL_TOKEN` environment variable, never in command-line arguments
 - sing-box listens on `127.0.0.1` only — no direct network exposure
 - The VLESS UUID is auto-generated on first launch
-- Tunnel token is excluded from settings export for safety
+- User-entered tunnel token is saved locally so it can override bundled defaults on next launch
 - Signal handlers (SIGTERM/SIGINT/SIGHUP) clean up child processes on Unix
 
 ## License

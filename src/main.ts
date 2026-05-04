@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import './styles.css';
 import {
   restoreSettingsFromSaved,
+  settingsForStorage,
   statusLabel,
   type HarborSettings,
   type HarborStatus,
@@ -61,8 +62,7 @@ let showAbout = false;
 const logs: HarborLogEvent[] = [];
 
 function persistSettings(nextSettings: HarborSettings): void {
-  const { cloudflaredToken: _token, ...safeSettings } = nextSettings;
-  localStorage.setItem('harbor.settings', JSON.stringify(safeSettings));
+  localStorage.setItem('harbor.settings', JSON.stringify(settingsForStorage(nextSettings)));
 }
 
 function restoreSettings(defaults: HarborSettings): HarborSettings {

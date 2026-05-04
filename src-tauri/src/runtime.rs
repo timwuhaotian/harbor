@@ -10,7 +10,9 @@ use std::{
 };
 
 use serde::Serialize;
-use tauri::{image::Image, path::BaseDirectory, AppHandle, Emitter, Manager, State};
+#[cfg(not(test))]
+use tauri::image::Image;
+use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, State};
 
 use crate::config::{
     build_preview, build_sing_box_config, default_settings, default_settings_from_json,
@@ -115,6 +117,16 @@ where
     }
 
     PathBuf::from(program)
+}
+
+fn runtime_program_or_default(program: &str, default_program: &str) -> String {
+    let program = program.trim();
+
+    if program.is_empty() {
+        default_program.to_string()
+    } else {
+        program.to_string()
+    }
 }
 
 fn check_port_available(port: u16) -> Result<(), HarborError> {
@@ -307,8 +319,10 @@ pub fn check_dependencies(
     app: AppHandle,
     settings: HarborSettings,
 ) -> Result<DependencyStatus, HarborError> {
-    let sing_box_path = resolve_runtime_program(&app, &settings.sing_box_path);
-    let cloudflared_path = resolve_runtime_program(&app, &settings.cloudflared_path);
+    let sing_box_program = runtime_program_or_default(&settings.sing_box_path, "sing-box");
+    let cloudflared_program = runtime_program_or_default(&settings.cloudflared_path, "cloudflared");
+    let sing_box_path = resolve_runtime_program(&app, &sing_box_program);
+    let cloudflared_path = resolve_runtime_program(&app, &cloudflared_program);
 
     let sing_box_ok = sing_box_path.is_file();
     let cloudflared_ok = cloudflared_path.is_file();
@@ -436,13 +450,8 @@ fn spawn_logged_process(
     args: Vec<String>,
     env: Option<(&str, String)>,
 ) -> Result<Child, HarborError> {
-    let program = program.trim();
-
-    if program.is_empty() {
-        return Err(HarborError::Validation(format!("{source} path is required")));
-    }
-
-    let resolved_program = resolve_runtime_program(&app, program);
+    let program = runtime_program_or_default(program, source);
+    let resolved_program = resolve_runtime_program(&app, &program);
     let mut command = Command::new(&resolved_program);
     command
         .args(args)
@@ -620,6 +629,15 @@ mod tests {
         let path = resolve_system_program_with("/custom/bin/cloudflared", |_| false);
 
         assert_eq!(path, PathBuf::from("/custom/bin/cloudflared"));
+    }
+
+    #[test]
+    fn runtime_program_or_default_should_use_bundled_name_for_blank_paths() {
+        assert_eq!(runtime_program_or_default("   ", "sing-box"), "sing-box");
+        assert_eq!(
+            runtime_program_or_default(" /custom/bin/cloudflared ", "cloudflared"),
+            "/custom/bin/cloudflared"
+        );
     }
 
     #[test]

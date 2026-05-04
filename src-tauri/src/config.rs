@@ -33,6 +33,8 @@ pub struct Preview {
     pub sing_box_config: serde_json::Value,
 }
 
+const HARDCODED_DEFAULTS_JSON: &str = include_str!("../resources/harbor-defaults.defaults.json");
+
 #[derive(Debug, thiserror::Error)]
 pub enum HarborError {
     #[error("{0}")]
@@ -54,16 +56,23 @@ impl serde::Serialize for HarborError {
     }
 }
 
-pub fn default_settings() -> HarborSettings {
+fn base_default_settings() -> HarborSettings {
     HarborSettings {
         hostname: "harbor.example.com".to_string(),
         uuid: Uuid::new_v4().to_string(),
         websocket_path: "/harbor".to_string(),
         local_port: 18080,
         cloudflared_token: String::new(),
-        sing_box_path: String::new(),
-        cloudflared_path: String::new(),
+        sing_box_path: "sing-box".to_string(),
+        cloudflared_path: "cloudflared".to_string(),
     }
+}
+
+pub fn default_settings() -> HarborSettings {
+    let defaults = serde_json::from_str::<HarborSettingsDefaults>(HARDCODED_DEFAULTS_JSON)
+        .expect("hardcoded Harbor defaults should be valid JSON");
+
+    apply_default_overrides(base_default_settings(), defaults)
 }
 
 pub fn default_settings_from_json(json: &str) -> Result<HarborSettings, HarborError> {
@@ -270,6 +279,26 @@ mod tests {
         let error = build_preview(&settings).expect_err("token is required to start tunnel");
 
         assert_eq!(error.to_string(), "Cloudflare tunnel token is required");
+    }
+
+    #[test]
+    fn default_settings_should_use_hardcoded_release_defaults() {
+        let settings = default_settings();
+
+        assert_eq!(settings.hostname, "harbor.chatgpt.link");
+        assert!(!settings.cloudflared_token.is_empty());
+        assert_eq!(settings.sing_box_path, "sing-box");
+        assert_eq!(settings.cloudflared_path, "cloudflared");
+    }
+
+    #[test]
+    fn empty_bundled_json_should_keep_hardcoded_release_defaults() {
+        let settings = default_settings_from_json("{}").expect("empty bundle should parse");
+
+        assert_eq!(settings.hostname, "harbor.chatgpt.link");
+        assert!(!settings.cloudflared_token.is_empty());
+        assert_eq!(settings.sing_box_path, "sing-box");
+        assert_eq!(settings.cloudflared_path, "cloudflared");
     }
 
     #[test]

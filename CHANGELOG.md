@@ -5,6 +5,11 @@ All notable changes to Harbor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-05-04
+
+### Fixed
+- Use hardcoded Harbor defaults for release builds while keeping locally saved user settings as the first priority.
+
 ## [1.0.0] - 2026-05-02
 
 ### Added

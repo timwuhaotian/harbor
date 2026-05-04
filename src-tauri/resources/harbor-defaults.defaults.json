@@ -1,0 +1,6 @@
+{
+  "hostname": "harbor.chatgpt.link",
+  "cloudflaredToken": "eyJhIjoiNDBjNTk3MDQ0YzA3ZTAwYzc2Zjg5MjE3ZjkxYTM3OWQiLCJ0IjoiYjE3YjIyMDktNzE4OS00MTYzLThjOWYtODkwNjg4M2MzMWMxIiwicyI6IlpEazRaRGxtTXpJdFpUWXpOUzAwWWpneUxUa3lOalV0TldWaE9HUmpaR0kzWldZdyJ9",
+  "singBoxPath": "sing-box",
+  "cloudflaredPath": "cloudflared"
+}

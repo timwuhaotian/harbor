@@ -40,6 +40,12 @@ describe('release workflow', () => {
     expect(prepareIndex).toBeLessThan(rustTestIndex)
   })
 
+  test('does not require release default configuration secrets', () => {
+    expect(workflow).not.toContain('HARBOR_DEFAULT_HOSTNAME')
+    expect(workflow).not.toContain('HARBOR_CLOUDFLARED_TOKEN')
+    expect(workflow).not.toContain('HARBOR_REQUIRE_BUNDLED_TOKEN')
+  })
+
   test('keeps release artifacts separate from the frontend dist directory', () => {
     expect(workflow).toContain('--out-dir release-dist')
     expect(workflow).toContain('path: release-dist/')

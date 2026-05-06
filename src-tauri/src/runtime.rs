@@ -283,8 +283,10 @@ pub fn start_harbor(
     runtime.cloudflared = Some(cloudflared);
     runtime.last_vless_link = Some(preview.vless_link);
     runtime.last_config_path = Some(path);
-    thread::sleep(Duration::from_millis(150));
-    runtime.refresh();
+
+    eprintln!("Harbor: spawned sing-box (pid={}) and cloudflared (pid={})", 
+        runtime.sing_box.as_ref().map(|c| c.id()).unwrap_or(0),
+        runtime.cloudflared.as_ref().map(|c| c.id()).unwrap_or(0));
 
     Ok(runtime.status())
 }
@@ -425,8 +427,18 @@ impl HarborRuntime {
     }
 
     fn refresh(&mut self) {
+        let sb_before = self.sing_box.is_some();
+        let cf_before = self.cloudflared.is_some();
         refresh_child(&mut self.sing_box);
         refresh_child(&mut self.cloudflared);
+        let sb_after = self.sing_box.is_some();
+        let cf_after = self.cloudflared.is_some();
+        if sb_before && !sb_after {
+            eprintln!("Harbor: sing-box process exited unexpectedly");
+        }
+        if cf_before && !cf_after {
+            eprintln!("Harbor: cloudflared process exited unexpectedly");
+        }
     }
 
     pub fn stop(&mut self) {
